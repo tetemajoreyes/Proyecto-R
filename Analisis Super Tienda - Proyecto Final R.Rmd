@@ -1,0 +1,488 @@
+---
+title: "Super Tienda- Proyecto Final R"
+subtitle: "Análisis de Ventas"
+author: "María José Reyes"
+date: "`r  Sys.Date()`"
+output: 
+ #html_document
+ rmdformats::downcute
+
+---
+
+
+<img title= "a title" alt="imgem hex de Rmarkdown" src= "Logotipo..png" width="30%">
+
+
+
+## **_Pasos previos al análisis_**
+
+
+- Analizamos las librerias con las que se iba a necesitar para el trabajo
+
+
+
+```{r Librerias, echo=FALSE, message=FALSE, warning=FALSE}
+#analisis
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+#Graficos
+library(plotly)
+#tablas
+library(DT)
+library(gt)
+#templet
+library(rmdformats)
+library(readxl)
+
+
+```
+
+- Revisión de la base de datos
+
+```{r Base, include=FALSE}
+library(readxl)
+Ventas_Supertienda_Reyes_xlsx <- read_excel("Ventas Supertienda - Reyes xlsx.xlsx")
+View(Ventas_Supertienda_Reyes_xlsx)
+
+```
+
+
+- Limpieza de los datos: Creamos una  función llamada "identificar_na" para localizar la existencia de NA en el data set .Con la misma logramos analizar los datos y no identificamos NA.
+
+
+```{r Funcion_NA , echo=FALSE, message=FALSE, warning=FALSE }
+
+identificar_na <- function(Ventas_Supertienda_Reyes_xlsx) {
+  # Identificar valores NA
+  na <- is.na(Ventas_Supertienda_Reyes_xlsx)
+  
+  # Contar valores NA por columna
+  cantidad_na <- apply(na, 2, sum)
+  
+  # Crear data frame con resultados
+  resultado <- data.frame(columna = names(cantidad_na), cantidad_na)
+  
+  # Retornar resultado
+  return(resultado)}
+
+mi_resultado <- identificar_na (Ventas_Supertienda_Reyes_xlsx)
+```
+
+- Se creó una copia de la BD para realizar la limpieza
+
+```{r Copia_BD, message=FALSE, warning=FALSE, include=FALSE}
+Ventas1<-Ventas_Supertienda_Reyes_xlsx
+
+str(Ventas_Supertienda_Reyes_xlsx)
+```
+
+- Realizamos cambios en los tipos de datos chr que deberían ser factor 
+
+```{r Cambios_TD, message=FALSE, warning=FALSE, include=FALSE}
+Ventas1<-mutate(Ventas1,across(.cols = c(Tipo_de_envio,Segmento,Pais,Ciudad,Estado,Region,Categoria),.fns = factor))
+str(Ventas1)
+
+
+```
+
+- Analizamos la existencia de duplicados en el data set
+
+```{r Duplicados, message=FALSE, warning=FALSE, include=FALSE}
+
+Ventas1_sin_dups <-distinct(Ventas1)
+
+Ventas1_sin_dups
+```
+
+## **_Análisis de los datos_**
+
+1. Creación de las columnas condición e IVA y clasificacion de ventas : Para poder realizar el análisis de las ventas necesitabamos clasificar las mismas en categorías "premium y simples" creandose la columna "condición". Además se necesito tener el datos del impuesto al valor agregado la cual genero el origen de la otra columna "IVA".
+
+```{r Nuevas_columnas, message=FALSE, warning=FALSE, include=FALSE}
+Ventas_2<- Ventas1_sin_dups %>% 
+  mutate(Condicion = ifelse(Cantidad > 7, "Venta_premiunm","Venta_simple"))%>% 
+  mutate(Ventas1_sin_dups, Con_IVA = Venta*1.21)
+
+Ventas_2
+
+```
+
+2. Necesitabamos conocer si durante el periodo que conforma el data set se habían aplicado los máximos descuentos .Para ello utilizamos estructuras de control y pudimos verificar que si se aplicaron los máximos descuentos en algunas ventas.
+
+```{r Estructuras_de_Control,message=FALSE, warning=FALSE, include=FALSE}
+if(any(Ventas_2$Descuento > 0.7)){
+  print("Hay ventas con maximo descuento")
+} else if(any(Ventas_2$Descuento > 0.1)){
+  print("Hay ventas con descuento menor")
+} else if(any(Ventas_2$Descuento == 0))
+  print("Hay ventas sin descuento ")
+
+
+```
+3. Se identificaron la cantidad de interacciones de los clientes segun el segmento
+
+        Tipo de segmento    |   Interracciones
+  
+        Consumidores        |      5191
+        Corporativos        |      3020
+        Oficina en casa     |      1783
+
+```{r Consumidores,message=FALSE, warning=FALSE, include=FALSE}
+
+conteo = 0 
+for(j in 1:nrow(Ventas_2)){
+  
+  if(Ventas_2[j, "Segmento"] == "Consumidor"){
+    conteo = conteo + 1
+  }
+  
+}
+print(conteo)
+
+```
+
+```{r Corporativos,message=FALSE, warning=FALSE, include=FALSE}
+conteo = 0
+for(j in 1:nrow(Ventas_2)){
+  
+  if(Ventas_2[j, "Segmento"] == "Corporativo"){
+    conteo = conteo + 1
+  }
+  
+}
+print(conteo)
+
+```
+
+```{r Oficina_en_casa ,message=FALSE, warning=FALSE, include=FALSE}
+
+conteo = 0
+for(j in 1:nrow(Ventas_2)){
+  
+  if(Ventas_2[j, "Segmento"] == "Oficina en casa"){
+    conteo = conteo + 1
+  }
+  
+}
+print(conteo)
+```
+
+
+
+## **_Principales KPIs_**
+
+- **Estos son los principales indicadores sobre el total del data set**
+
+```{r Promedios, message=FALSE, warning=FALSE, include=FALSE}
+round(apply(Ventas_2[, 18:21], 2, mean),2)
+Promedio_venta<-round(apply(Ventas_2[, 18:21], 2, mean),2)
+
+
+```
+
+```{r tabla promedio,echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(Promedio_venta, col.names = c("Promedio"), align = "c")
+```
+
+```{r Varianza,message=FALSE, warning=FALSE, include=FALSE }
+round(apply(Ventas_2[, 18:21], 2, var),2)
+Varianza <-round(apply(Ventas_2[, 18:21], 2, var),2)
+```
+
+```{r tabla varianza, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(Varianza, col.names = c("Varianza"), align = "c")
+```
+
+
+
+
+
+```{r Maximos, message=FALSE, warning=FALSE, include=FALSE}
+round(apply(Ventas_2[, 18:21], 2, max),2)
+Maximos<-sort(round(apply(Ventas_2[, 18:21], 2, max),2),decreasing = TRUE)
+```
+
+```{r tabla maximo, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(Maximos, col.names = c("Máximo"), align = "c")
+```
+
+
+
+
+- **Ventas según segmento de cliente**
+
+```{r Promedio de segmento de cliente, message=FALSE, warning=FALSE, include=FALSE}
+round(tapply(Ventas_2$Venta, Ventas_2$Segmento, mean),2)
+Promedio1<-sort(round(tapply(Ventas_2$Venta, Ventas_2$Segmento, mean),2),decreasing = TRUE)
+
+```
+
+```{r tabla Promedio de segmento, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(Promedio1, col.names = c("Promedio"), align = "c")
+```
+
+
+
+
+- **Ventas según categoria de producto**
+
+```{r Promedio de categoria, message=FALSE, warning=FALSE, include=FALSE}
+round(tapply(Ventas_2$Venta, Ventas_2$Categoria, mean),2)
+Promedio2<-sort(round(tapply(Ventas_2$Venta, Ventas_2$Categoria, mean),2),decreasing = TRUE)
+```
+
+```{r tabla Promedio de producto,echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(Promedio2, col.names = c("Promedio"), align = "c")
+```
+
+
+- **Ventas según de cada subcategoria de productos**
+
+```{r Promedio de subcategoria, message=FALSE, warning=FALSE, include=FALSE}
+round(tapply(Ventas_2$Venta, Ventas_2$Subcategoria, mean),2)
+Ventas_categorias<-sort(round(tapply(Ventas_2$Venta, Ventas_2$Subcategoria, mean),2),decreasing = TRUE)
+```
+
+```{r tabla Promedio de subcategoria, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(Ventas_categorias, col.names = c("Promedio"), align = "c")
+```
+
+- **Análisis de las ventas según el tipo de envio**
+
+```{r ventas segun tipo de envio, message=FALSE, warning=FALSE, include=FALSE}
+Ventas_por_envio<-Ventas_2 %>% 
+  select(5,10,18,19,21) %>% 
+  group_by(Tipo_de_envio) %>% 
+  summarise(Ventas=max(Venta))%>% 
+  arrange(desc(Ventas))
+Ventas_por_envio
+
+```
+
+```{r tabla de ventas segun tipo de envio, include=FALSE}
+datatable(Ventas_por_envio)
+
+
+
+```
+
+```{r grafico segun tipo de envio, echo=FALSE}
+Ventas_Pais <- 
+  ggplot(data=Ventas_por_envio, aes(x=reorder(Tipo_de_envio, -Ventas), y=Ventas)) +
+    geom_col(fill="red", alpha=0.5) +
+    labs(
+      x=" ",
+      y=" "
+    ) +
+    theme(plot.title = element_text(face = "bold"))
+
+
+# Agregar el símbolo de dólar ($) al eje y
+Ventas_Pais1 <-Ventas_Pais +
+                 scale_y_continuous(labels = scales::dollar_format())
+
+# Convertir el gráfico a plotly
+Ventas_Pais1 <- ggplotly(Ventas_Pais1)
+
+# Mostrar el resultado
+
+Ventas_Pais1
+
+
+
+
+
+```
+
+
+- **Principales KPIs segun el cliente**
+
+
+```{r ventas segun los clientes, message=FALSE, warning=FALSE, include=FALSE}
+Ventas_clientes<-Ventas_2 %>% 
+  select(6,7,18,19) %>% 
+  group_by(ID_cliente) %>% 
+  summarise(Ingresos=round(sum(Venta), 2),
+            Cantidad_vendida=round(sum(Cantidad), 2),
+            Promedio=round(mean(Venta), 2),
+  )%>%  
+  arrange(desc(Ingresos))
+Ventas_clientes
+
+```
+
+```{r tabla de ventas de clientes, echo=FALSE}
+datatable(Ventas_clientes)
+
+```
+
+
+
+
+## **_Análisis regional_**
+
+- **Principales KPIs de los clientes según el segmento al que pertenecen  en la ciudad de San Antonio del Estado de Texas en la región Centro**
+
+
+
+
+```{r BD Segmento texas, message=FALSE, warning=FALSE, include=FALSE}
+Segmento_Texas<-Ventas_2 %>% 
+  select(6,8,10,11,13,18,19,21) %>% 
+  filter(Ciudad=="San Antonio",Estado=="Texas",Region=="Centro") %>% 
+  group_by(Segmento) %>% 
+  summarise(Prom=mean(Cantidad),
+            Max=max(Cantidad),
+            Min=min(Cantidad),
+            Conteo= n(),
+            Desv=sd(Cantidad),
+            Var=var(Cantidad),
+            Ventas=sum(Venta),
+            Ganancias=sum(Ganancia)) %>%  
+  arrange(desc(Ventas))
+
+# Redondear los valores de la columna Prom
+Segmento_Texas$Prom <- round(Segmento_Texas$Prom, 2)
+
+# Redondear los valores de la columna Max
+Segmento_Texas$Max <- round(Segmento_Texas$Max, 2)
+
+# Redondear los valores de la columna Min
+Segmento_Texas$Min <- round(Segmento_Texas$Min, 2)
+
+# Redondear los valores de la columna Desv
+Segmento_Texas$Desv <- round(Segmento_Texas$Desv, 2)
+
+# Redondear los valores de la columna Var
+Segmento_Texas$Var <- round(Segmento_Texas$Var, 2)
+
+# Redondear los valores de la columna Ventas
+Segmento_Texas$Ventas <- round(Segmento_Texas$Ventas, 2)
+
+# Redondear los valores de la columna Ganancias
+Segmento_Texas$Ganancias <- round(Segmento_Texas$Ganancias, 2)
+
+
+Segmento_Texas
+```
+
+```{r Table del segmento de cliente, echo=FALSE}
+datatable(Segmento_Texas)
+```
+
+**Podemos observar que en la ciudad de San Antonio los clientes tipo consumidores son los que mayor ventas tienen en el periodo de análisis , acumulando un total de $17930.52**
+
+
+```{r grafico ventas Texas, echo=FALSE}
+# Crear el gráfico de barras con ggplot
+Ventas_Texas <- ggplot(data=Segmento_Texas,aes(y=Ventas,x=Segmento))+
+                 geom_col(fill="red",alpha=0.50)+
+                 labs(title= "Ventas por segmento de cliente",
+                      x="",
+                      y="") +
+                 theme(plot.title = element_text(face = "bold"))
+
+# Agregar el símbolo de dólar ($) al eje y
+Ventas_Texas1 <- Ventas_Texas +
+                 scale_y_continuous(labels = scales::dollar_format())
+
+# Convertir el gráfico a plotly
+Ventas_Texas1 <- ggplotly(Ventas_Texas1)
+
+# Mostrar el resultado
+Ventas_Texas1
+```
+
+
+
+## **_Analisis del Top 10 de clientes_**
+
+- **Principales KPIs**
+
+```{r top 10 de clientes, message=FALSE, warning=FALSE, include=FALSE}
+Top_10 <-Ventas_2 %>% 
+  select(5,6,7,18,19,21) %>% 
+  group_by(ID_cliente,Tipo_de_envio) %>% 
+  summarise(Ingresos=sum(Venta),
+            Cant_vendida=sum(Cantidad),
+            Prom_vta=mean(Venta),
+            Prom_Q=mean(Cantidad),
+            Gcia=sum(Ganancia),
+            Costo=(Ingresos-Gcia)) %>% 
+  arrange(desc(Ingresos)) %>% 
+  head(10)
+
+# Redondear los valores de la columna Ingresos
+Top_10$Ingresos <- round(Top_10$Ingresos, 2)
+Top_10$Cant_vendida<-round(Top_10$Cant_vendida, 2)
+Top_10$Prom_vta<-round(Top_10$Prom_vta, 2)
+Top_10$Prom_Q<-round(Top_10$Prom_Q, 2)
+Top_10$Gcia<-round(Top_10$Prom_Q, 2)
+Top_10$Costo<-round(Top_10$Costo, 2)
+
+Top_10
+```
+
+```{r tabla Top 10 , echo=FALSE}
+datatable(Top_10)
+
+```
+
+
+
+
+
+```{r grafico Top 10 segun ventas, echo=FALSE, error=FALSE}
+#con graficos interactivos
+pruebas2<-ggplotly(ggplot(data=Top_10 , aes(x=reorder(Ingresos,desc(ID_cliente)),y=ID_cliente))+
+                     geom_col(fill="red",alpha=0.5)+
+                     labs(
+                       title= "Ventas de los mejores 10 clientes",
+                       x="$",
+                       y="Cliente") +
+                     theme(plot.title = element_text(face = "bold")))
+
+pruebas2
+```
+
+
+
+- **Analisis de los mejores diez clientes segun el tipo de envio**
+
+
+
+
+
+```{r grafico Top 10,echo=FALSE}
+Venta_top10 <- ggplotly(
+  ggplot(data=Top_10 , aes(x=reorder(round(Ingresos, 2), desc(ID_cliente)), y=ID_cliente, fill=Tipo_de_envio)) +
+    geom_col(alpha=0.5) +
+    labs(
+      title= "Top 10 de ventas y segun tipo de envio ",
+      caption= "Fuente:Ventas_Supertienda",
+      x="$",
+      y="Cliente"
+    ) +
+    scale_fill_manual(values=c("red", "blue", "green")) +
+    theme_classic() +
+    theme(axis.title.y = element_text(angle = 0))
+)
+
+Venta_top10
+```
+
+
+## **_Conclusiones generales_**
+
+- La categoria de cliente tipo comsumidor es la de mayor intereacciones realizo en el periodo
+- El promedio general de ventas es de $229,86
+- Los productos más vendidos son los de tecnología de los cuales  se detacan las copiadoras
+- Tipo de envio de preferido es el estandar
+- El cliente destacado es SM - 20320
+
+
+
+
+
+
